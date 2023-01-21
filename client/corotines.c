@@ -29,6 +29,7 @@ int max_speed;  /* Motor maximal speed */
 int app_alive;
 
 enum {
+    //MODE_REMOTE,  /* IR remote control */
     MODE_AUTO,    /* Self-driving */
 };
 int mode;  /* Driving mode */
@@ -56,7 +57,11 @@ static void _set_mode( int value ) //only have one mode, the IR_PROX mode
         /* IR measuring of distance */
         set_sensor_mode_inx( ir, LEGO_EV3_IR_IR_PROX );
         mode = MODE_AUTO;
-    } 
+    } //else {
+        /* IR remote control */
+        //set_sensor_mode_inx( ir, LEGO_EV3_IR_IR_REMOTE );
+        //mode = MODE_REMOTE;
+    //}
 }
 static void _run_forever( int l_speed, int r_speed ) /*this means ev3 drive forever*/
 {
@@ -118,7 +123,7 @@ int app_init( void )
     }
     command = moving = MOVE_NONE;
     if ( ev3_search_sensor( LEGO_EV3_IR, &ir, 0 )) {
-        _set_mode( MODE_AUTO );
+        _set_mode( MODE_REMOTE );
     } else {
         printf( "IR sensor is NOT found.\n" );
         /* Inoperative without IR sensor */
@@ -193,7 +198,7 @@ CORO_DEFINE( drive )
         _wait_stopped = 0;
         switch ( command ) {
         case MOVE_NONE:
-            _stop_ev3();
+            _stop();
             _wait_stopped = 1;
             break;
         case MOVE_FORWARD:
@@ -214,14 +219,14 @@ CORO_DEFINE( drive )
             _wait_stopped = 1;
             break;
         case STEP_BACKWARD:
-            _run_for_time( speed_linear, speed_linear, 1000 );
+            _run_timed( speed_linear, speed_linear, 1000 );
             _wait_stopped = 1;
             break;
         }
         moving = command;
         if ( _wait_stopped ) {
             /* Waiting the command is completed */
-            CORO_WAIT( !_check_if_is_running());
+            CORO_WAIT( !_is_running());
             command = moving = MOVE_NONE;
         }
     }
