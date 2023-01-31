@@ -54,7 +54,7 @@ int forward(int distance){
 			int max_speed;
 
 			get_tacho_max_speed( WHEELS[0], &max_speed);
-			printf("Max Speed is: %d", max_speed);			
+			printf("Max Wheel 0 Speed is: %d", max_speed);			
 			// STANDARD PROCEDURE 
 			set_tacho_speed_sp( WHEELS[0], dest_pos/2 );
 			//set_tacho_time_sp( WHEELS[0], time );

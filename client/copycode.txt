@@ -1,0 +1,50 @@
+	if(robot.STATE = 312){	
+			// PRE-SCAN
+			if(PRE_SCAN){
+				printf("Pre-Scanning!\n");
+				rotate_until(LEFT);
+				if(robot.GYRO_VAL <= init_angle - 15){
+					//tate_until(RIGHT);
+					//(robot.GYRO_VAL >= init_angle);
+					stop();
+					PRE_SCAN = FALSE;
+					SCANNING = TRUE;
+					robot.SEEK_MODE = TRUE;
+				}
+			}
+			
+			// SCAN
+			if(SCANNING){
+				printf("Scanning!\n");
+				rotate_until(RIGHT);
+				if(robot.GYRO_VAL >= init_angle + 15){
+					stop();
+					SCANNING = FALSE;
+					POST_SCAN = TRUE;
+					robot.SEEK_MODE = FALSE;
+				}
+			}
+			
+			//POSTSCAN	
+			if(POST_SCAN){
+				printf("Post-Scanning!\n");
+				rotate_until(LEFT);
+				if(robot.GYRO_VAL <= init_angle){
+					stop();
+					POST_SCAN = FALSE;
+					high = robot.NOBS;
+				}
+
+				for(i = 0; i < robot.NOBS-1; i++){
+                                	OBVS[i] = robot.SONAR_OBS[i] - robot.SONAR_OBS[i+1];
+					//printf("Observation %d is %f\n", i, OBVS[i]);
+                        	}
+
+				detection(OBVS, robot.NOBS);
+
+				for(i=0; i < 0;i++){
+                                	if(robot.SONAR_OBS[i] > -50 && robot.SONAR_OBS[i] < -40 ){
+                                        	printf("%d is the start of the ball\n", i);
+                                	}
+                        	}
+				

@@ -29,7 +29,6 @@ int max_speed;  /* Motor maximal speed */
 int app_alive;
 
 enum {
-    //MODE_REMOTE,  /* IR remote control */
     MODE_AUTO,    /* Self-driving */
 };
 int mode;  /* Driving mode */
@@ -57,11 +56,7 @@ static void _set_mode( int value ) //only have one mode, the IR_PROX mode
         /* IR measuring of distance */
         set_sensor_mode_inx( ir, LEGO_EV3_IR_IR_PROX );
         mode = MODE_AUTO;
-    } //else {
-        /* IR remote control */
-        //set_sensor_mode_inx( ir, LEGO_EV3_IR_IR_REMOTE );
-        //mode = MODE_REMOTE;
-    //}
+    } 
 }
 static void _run_forever( int l_speed, int r_speed ) /*this means ev3 drive forever*/
 {
@@ -103,6 +98,14 @@ static void _stop_ev3( void ) /*stop the ev3 from driving*/
 
 int app_init( void )
 {
+
+
+	printf("ENTERING INIT\n");
+
+
+	int i, val;
+  	uint32_t n, ii;
+
     char s[ 16 ];
     if ( ev3_search_tacho_plugged_in( L_MOTOR_PORT, L_MOTOR_EXT_PORT, motor + L, 0 )) {
         get_tacho_max_speed( motor[ L ], &max_speed );
@@ -122,13 +125,41 @@ int app_init( void )
         return ( 0 );
     }
     command = moving = MOVE_NONE;
-    if ( ev3_search_sensor( LEGO_EV3_IR, &ir, 0 )) {
-        _set_mode( MODE_REMOTE );
-    } else {
-        printf( "IR sensor is NOT found.\n" );
-        /* Inoperative without IR sensor */
-        return ( 0 );
-    }
+
+/* code from twc */
+
+
+  	printf( "Found sensors:\n" );
+  	for ( i = 0; i < DESC_LIMIT; i++ ) {
+    	if ( ev3_sensor[ i ].type_inx != SENSOR_TYPE__NONE_ ) {
+      		printf( "  type = %s\n", ev3_sensor_type( ev3_sensor[ i ].type_inx ));
+      		printf( "  port = %s\n", ev3_sensor_port_name( i, s ));
+
+      		if ( get_sensor_mode( i, s, sizeof( s ))) {
+        		printf( "  mode = %s\n", s );
+      		}
+      		if ( get_sensor_num_values( i, &n )) {
+        		for ( ii = 0; ii < n; ii++ ) {
+          			if ( get_sensor_value( ii, i, &val )) {
+            				printf( "  value%d = %d\n", ii, val );
+          			}	
+        		}
+      		}
+    	}}
+
+//  end of code from twc
+
+   // if ( ev3_search_sensor( LEGO_EV3_IR, &ir, 0 )) {
+   //     _set_mode( MODE_AUTO );
+   // } else {
+   //     printf( "IR sensor is NOT found.\n" );
+   //     /* Inoperative without IR sensor */
+   //     return ( 0 );
+   // }
+
+
+	printf("EXITNG INIT\n");
+
     printf( "Press BACK on the EV3 brick for EXIT...\n" );
     return ( 1 );
 }
@@ -140,20 +171,29 @@ CORO_CONTEXT( drive );
 /* Coroutine of IR proximity handling (self-driving)*/
 CORO_DEFINE( handle_ir_proximity )
 {
+
+	printf("ENTERING PROXIMITY\n");
+
+    int i;
     CORO_LOCAL int front, prox;
     CORO_BEGIN();
-    for ( ; ; ) {
+    for ( i=0; i<1000000; i++ ) {
+	printf("COROUTINE FOR HANDLE IR RUNNING, INSIDE THE FOR LOOP\n");
         /* Waiting self-driving mode */
         CORO_WAIT( mode == MODE_AUTO );
         prox = 0;
         get_sensor_value( 0, ir, &prox );
+
+	    printf("Value of front is %d", prox);
+ 
+
         if ( prox == 0 ) {
             /* Oops! Stop the vehicle */
             command = MOVE_NONE;
         //if this close first look to the left and check dist, then look to the right and check dist.
         } else if ( prox < 20 ) {  /* Need for detour... */
             front = prox;
-            /* Look to the left */
+           /* Look to the left */
             angle = -30;
             command = TURN_ANGLE;
             CORO_WAIT( command == MOVE_NONE );
@@ -180,38 +220,50 @@ CORO_DEFINE( handle_ir_proximity )
             /* Track is clear - Go! */
             command = MOVE_FORWARD;
         }
+
+	printf("YIELDING PROXIMITY\n");
+
         CORO_YIELD();
     }
+
+	printf("EXITING PROXIMITY\n");
+
+
     CORO_END();
 }
 /* Coroutine of control the motors */
 CORO_DEFINE( drive )
 {
+
+	printf("ENTERING DRIVING\n");
+
+
+    int i;
     CORO_LOCAL int speed_linear, speed_circular;
     CORO_LOCAL int _wait_stopped;
     CORO_BEGIN();
     speed_linear = max_speed * SPEED_LINEAR / 100;
     speed_circular = max_speed * SPEED_CIRCULAR / 100;
-    for ( ; ; ) {
+    for ( i=0; i<1000000; i++ ) {
         /* Waiting new command */
         CORO_WAIT( moving != command );
         _wait_stopped = 0;
         switch ( command ) {
         case MOVE_NONE:
-            _stop();
+            _stop_ev3();
             _wait_stopped = 1;
             break;
         case MOVE_FORWARD:
-            _run_forever( -speed_linear, -speed_linear );
-            break;
-        case MOVE_BACKWARD:
             _run_forever( speed_linear, speed_linear );
             break;
+        case MOVE_BACKWARD:
+            _run_forever( -speed_linear, -speed_linear );
+            break;
         case TURN_LEFT:
-            _run_forever( speed_circular, -speed_circular );
+            _run_forever( -speed_circular, speed_circular );
             break;
         case TURN_RIGHT:
-            _run_forever( -speed_circular, speed_circular );
+            _run_forever( speed_circular, -speed_circular );
             break;
         case TURN_ANGLE:
             _run_to_rel_pos( speed_circular, DEGREE_TO_COUNT( -angle )
@@ -219,17 +271,21 @@ CORO_DEFINE( drive )
             _wait_stopped = 1;
             break;
         case STEP_BACKWARD:
-            _run_timed( speed_linear, speed_linear, 1000 );
+            _run_for_time( speed_linear, speed_linear, 1000 );
             _wait_stopped = 1;
             break;
         }
         moving = command;
         if ( _wait_stopped ) {
             /* Waiting the command is completed */
-            CORO_WAIT( !_is_running());
+            CORO_WAIT( !_check_if_is_running());
             command = moving = MOVE_NONE;
         }
     }
+
+	printf("EXITING DRIVE\n");
+
+
     CORO_END();
 }
 int main( void )

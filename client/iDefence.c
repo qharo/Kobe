@@ -113,6 +113,7 @@ int grab();
 void rotate_until(int side);
 //int rotateWithGyro(Robot *robot, int degree);
 
+
 // MAIN
 int main( void )
 {
@@ -149,7 +150,7 @@ int main( void )
   init_robot();
 
 // ------------- CODE BEGINS HERE ------------------
-
+  int tour = 0;
   robot.SEEK_MODE = FALSE;
   robot.STATE = RELEASE_BALL;
   while(robot.MAMBA_MODE){
@@ -158,6 +159,11 @@ int main( void )
 	CORO_CALL( fetch_color ) ;
 	CORO_CALL( defence );
 	CORO_CALL( handle_touch );
+	tour ++;
+	if (tour % 30 == 0){
+		printf("\nsonar: %f \tangle: %f \tcol: %s \n",robot.SONAR_VAL,robot.GYRO_VAL,color_names[robot.COLOR_VAL]);
+		tour = 0;
+	}
   }
 
 // ------------- CODE ENDS HERE -------------------
@@ -181,6 +187,7 @@ int main( void )
 // HANDLE_TOUCH
 // used to check if we are touching grass... I mean walls
 CORO_DEFINE( handle_touch ){
+	//printf("#### HANDLE_TOUCH ####\n");
 	CORO_LOCAL int val;
 	CORO_BEGIN();
 
@@ -199,16 +206,26 @@ CORO_DEFINE( handle_touch ){
 
 // FETCHCOLOR
 CORO_DEFINE( fetch_color ){
+	//printf("#### FETCH_COLOR ####\n");
 	CORO_LOCAL int RGB_val[3];
 
+	//BLACK
 	CORO_LOCAL int RGB_black[3] = {17, 35, 43}; // RGB values that we found empiricaly
 	CORO_LOCAL int leeway_black[3] = {12, 17, 18}; // defines the window where we have 99.99% of values
 	
+	//WHITE
 	CORO_LOCAL int RGB_white[3] = {160, 309, 354};
 	CORO_LOCAL int leeway_white[3] = {12, 27, 34};
 	
-	CORO_LOCAL int RGB_greenish[3] = {65, 138, 52};
-	CORO_LOCAL int leeway_greenish[3] = {10, 20, 29};
+	//YELLOW(for tests at home purposes, replace with greenish for the real thing)
+	CORO_LOCAL int RGB_greenish[3] = {126, 141, 50};
+	CORO_LOCAL int leeway_greenish[3] = {13, 12, 5};
+	
+	// //GREENISH
+	// CORO_LOCAL int RGB_greenish[3] = {65, 138, 52};
+	// CORO_LOCAL int leeway_greenish[3] = {10, 20, 29};
+	// CORO_BEGIN();	
+	
 
 	CORO_BEGIN();	
 	
@@ -238,7 +255,7 @@ CORO_DEFINE( fetch_color ){
 			robot.COLOR_VAL = IDK;
 		}
 
-		printf("Color name is %s \n", color_names[robot.COLOR_VAL]);
+		//printf("Color name is %s \n", color_names[robot.COLOR_VAL]);
 		CORO_YIELD();
 	}
 	CORO_END();
@@ -263,7 +280,8 @@ CORO_DEFINE( fetch_color ){
 
 // FETCH_SONAR
 CORO_DEFINE( fetch_sonar ){
-	//time_t current_time = time(NULL); // to check the effect of poll on frequency
+	//printf("#### FETCH_SONAR ####\n");
+	//time_t current_time = time(NULL);
 	CORO_LOCAL float value;
 	CORO_LOCAL int counter=0;
 	CORO_BEGIN();
@@ -271,7 +289,7 @@ CORO_DEFINE( fetch_sonar ){
 	for(;;){
 		get_sensor_value0(robot.SONAR, &value );
 		robot.SONAR_VAL = value;
-		//printf("time: %d\t IR Val %f\n", current_time ,robot.SONAR_VAL);
+		//printf("time: %d\t IR Val %f\n", current_time ,robot.SONAR_VAL); // to check the effect of poll on frequency
 		if(robot.SEEK_MODE){
 			robot.SONAR_OBS[counter] = robot.SONAR_VAL;
 			counter++;
@@ -285,7 +303,7 @@ CORO_DEFINE( fetch_sonar ){
 
 // FETCHGYRO
 CORO_DEFINE( fetch_gyro ){
-
+	//printf("#### FETCH_GYRO ####\n");
 	CORO_LOCAL float value;
 	CORO_LOCAL int counter = 0;
 	CORO_BEGIN();
@@ -306,7 +324,7 @@ CORO_DEFINE( fetch_gyro ){
 
 // DEFEND
 CORO_DEFINE( defence ){
-
+	//printf("#### DEFENCE ####\n");
 	CORO_LOCAL int max_speed, init_angle, count, go_forward;
 	CORO_LOCAL int PRE_SCAN, SCANNING, POST_SCAN;
 	CORO_LOCAL int STEP1, STEP2, STEP3;
@@ -333,8 +351,10 @@ CORO_DEFINE( defence ){
 	PRE_SCAN = TRUE;
 	SCANNING = FALSE;
 	POST_SCAN = FALSE;
-	printf("----in %s----\n",state_names[robot.STATE]);
-	printf("\tstep 1\n");
+	printf("---- ---- in %s ---- ---- \n",state_names[robot.STATE]);
+
+	if(robot.STATE == RELEASE_BALL){printf("\tstep 1\n");}
+
 	for(;;){
 		// CHECK STATUS
 		if(robot.STATE == RELEASE_BALL){
@@ -362,7 +382,6 @@ CORO_DEFINE( defence ){
 			}
 			if (STEP3){
                 // go back to the previous value
-                printf("\tstep 3\n");
 				rotate_until(LEFT);
 				if (robot.GYRO_VAL<=init_angle){
 					stop();
@@ -370,11 +389,9 @@ CORO_DEFINE( defence ){
 					forward(-10);
 					Sleep(2500);
 					robot.STATE = GO_TO_BALL;
-					printf("----in %s----\n",robot.STATE);
-					;
+					printf("---- ---- in %s ---- ---- \n",state_names[robot.STATE]);
 					STEP3=0;
 					STEP1=1;
-					printf("\tstep 1\n");
 					}
 				}
 			}
@@ -395,17 +412,16 @@ CORO_DEFINE( defence ){
             }
 			// if we are closer than 30cm wrt something - stop and go to ball detect
             if (robot.SONAR_VAL<=300){
-				printf("\tAAAAAA STOP STOP STOP!!! *panic*\n");
 				// now, we are either 30cm from ball or from wall
                 stop();
+
                 robot.STATE = BALL_DETECT;
-				printf("----in %s----\n",robot.STATE);				
+				printf("---- ---- in BALL_DETECT ---- ---- \n\tPRE_SCAN\n");			
             }
         }
 
 		// TODO - idk
 		if (robot.STATE == NEXT_BALL){
-            printf("----in NEXT_BALL----\n");
             	rotate_until(LEFT);
 			STEP1GRAB=1;
 			STEP2THROW=0;
@@ -413,14 +429,14 @@ CORO_DEFINE( defence ){
 				stop();
 				count++;
 				robot.STATE = GO_TO_BALL;
-				printf("----in %s----\n",robot.STATE);
+				printf("---- ---- in %s ---- ---- \n",state_names[robot.STATE]);
 			}
 		}
 
 		// BALLDETECTMODE
 		/*
 		if(robot.STATE == BALL_DETECT){
-            printf("----in BALL_DETECT----\n");
+            printf("---- ---- in BALL_DETECT ---- ---- \n");
 			if(STEP1GRAB){
 				grab();
 				STEP1GRAB=0;
@@ -430,19 +446,17 @@ CORO_DEFINE( defence ){
 				throw_ball();
 				if(count == 0){
 					robot.STATE == NEXT_BALL;
-					printf("----in %s----\n",robot.STATE);		
+					printf("---- ---- in %s ---- ---- \n",state_names[robot.STATE]);		
 				} else {
 					robot.STATE == DEFEND_GOAL;
-					printf("----in %s----\n",robot.STATE);
+					printf("---- ---- in %s ---- ---- \n",state_names[robot.STATE]);
 				}
 			}
 		}
 		*/
 		if(robot.STATE == BALL_DETECT){
-            //printf("----in BALL_DETECT----\n");
-			// scan to understand where the fucking ball is
+			// scan to understand where the f*****g ball is
 			if(PRE_SCAN){
-				//printf("\tPre-Scanning!\n");
 				rotate_until(LEFT);
 				if(robot.GYRO_VAL <= init_angle - 30){
 					//tate_until(RIGHT);
@@ -451,22 +465,22 @@ CORO_DEFINE( defence ){
 					PRE_SCAN = FALSE;
 					SCANNING = TRUE;
 					robot.SEEK_MODE = TRUE;
+					printf("\tSCAN!\n");
 				}
 			}
 			// SCAN
 			if(SCANNING){
-				printf("\tScanning!\n");
 				rotate_until(RIGHT);
 				if(robot.GYRO_VAL >= init_angle + 30){
 					stop();
 					SCANNING = FALSE;
 					POST_SCAN = TRUE;
 					robot.SEEK_MODE = FALSE;
+					printf("\tPOST_SCAN!\n");
 				}
 			}
 			//POSTSCAN
 			if(POST_SCAN){
-				printf("\tPost-Scanning!\n");
 				rotate_until(LEFT);
 				if(robot.GYRO_VAL <= init_angle){
 					stop();
@@ -493,7 +507,7 @@ CORO_DEFINE( defence ){
 		}*/
 
 	if (robot.STATE == DEFEND_GOAL){
-        printf("----in DEFEND_GOAL----\n");
+        printf("---- ---- in DEFEND_GOAL ---- ---- \n");
         	if (!go_forward){
                 	run_forever(-max_speed/2);
                 	if (robot.GYRO_VAL>=900){
@@ -656,7 +670,7 @@ int grab(){
 // first, we throw the ball in the grabbing arm	
 // then, we rotate the throwing arm to BOOP other balls away
 int release(){
-
+	printf("running: release\n");
 	int max_speed;
 
     get_tacho_max_speed( robot.THROW, &max_speed );

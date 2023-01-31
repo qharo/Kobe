@@ -342,16 +342,22 @@ CORO_DEFINE( handle_touch ){
 CORO_DEFINE( fetch_color ){
 	CORO_LOCAL int RGB_val[3];
 
+	//BLACK
 	CORO_LOCAL int RGB_black[3] = {17, 35, 43}; // RGB values that we found empiricaly
 	CORO_LOCAL int leeway_black[3] = {12, 17, 18}; // defines the window where we have 99.99% of values
 	
+	//WHITE
 	CORO_LOCAL int RGB_white[3] = {160, 309, 354};
 	CORO_LOCAL int leeway_white[3] = {12, 27, 34};
 	
-	CORO_LOCAL int RGB_greenish[3] = {65, 138, 52};
-	CORO_LOCAL int leeway_greenish[3] = {10, 20, 29};
+	//YELLOW(for tests at home purposes, replace with greenish for the real thing)
+	CORO_LOCAL int RGB_greenish[3] = {126, 141, 50};
+	CORO_LOCAL int leeway_greenish[3] = {13, 12, 5};
 	
-	CORO_BEGIN();	
+	// //GREENISH
+	// CORO_LOCAL int RGB_greenish[3] = {65, 138, 52};
+	// CORO_LOCAL int leeway_greenish[3] = {10, 20, 29};
+	// CORO_BEGIN();	
 	
 	for(;;){
 		//finding new rgb values
@@ -360,10 +366,10 @@ CORO_DEFINE( fetch_color ){
 		get_sensor_value(B, robot.COLOR, &RGB_val[B]); //blu	
 		
 		// making a file to get the repartition of error of a specific colour(kind of training)
-		FILE *fp;
-		fp = fopen("RGB_data.csv", "a");
-		fprintf(fp, "%d,%d,%d\n", RGB_val[R], RGB_val[G], RGB_val[B]);
-		fclose(fp);
+		// FILE *fp;
+		// fp = fopen("RGB_data.csv", "a");
+		// fprintf(fp, "%d,%d,%d\n", RGB_val[R], RGB_val[G], RGB_val[B]);
+		// fclose(fp);
 		
 		//printf("Color value is: R:%d G:%d B:%d \n", RGB_val[R], RGB_val[G], RGB_val[B]);
 		
@@ -374,7 +380,7 @@ CORO_DEFINE( fetch_color ){
 		} else if (RGB_val[R]>RGB_black[R]-leeway_black[R] && RGB_val[R]<RGB_black[R]+leeway_black[R] && RGB_val[G]>RGB_black[G]-leeway_black[G] && RGB_val[G]<RGB_black[G]+leeway_black[G] && RGB_val[B]>RGB_black[B]-leeway_black[B] && RGB_val[B]<RGB_black[B]+leeway_black[B]) {
 			robot.COLOR_VAL = BLACK;
 		} else if (RGB_val[R]>RGB_greenish[R]-leeway_greenish[R] && RGB_val[R]<RGB_greenish[R]+leeway_greenish[R] && RGB_val[G]>RGB_greenish[G]-leeway_greenish[G] && RGB_val[G]<RGB_greenish[G]+leeway_greenish[G] && RGB_val[B]>RGB_greenish[B]-leeway_greenish[B] && RGB_val[B]<RGB_greenish[B]+leeway_greenish[B]) {
-			robot.COLOR_VAL = GREENISH;			
+			robot.COLOR_VAL = GREENISH;		
 		} else {
 			robot.COLOR_VAL = IDK;
 		}
